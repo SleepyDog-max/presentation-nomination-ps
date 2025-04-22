@@ -119,7 +119,13 @@
             // Populate table
             const nominationsTable = document.getElementById('nominations-table');
             nominationsTable.innerHTML = ''; // Clear existing rows
-            const nominations = JSON.parse(localStorage.getItem('parramatta_nominations') || '[]');
+            let nominations = [];
+            try {
+                nominations = JSON.parse(localStorage.getItem('parramatta_nominations') || '[]');
+            } catch (e) {
+                console.error('Error parsing nominations:', e);
+                nominations = [];
+            }
 
             if (nominations.length === 0) {
                 nominationsTable.innerHTML = '<tr><td colspan="2" class="p-2 text-center">No nominations submitted yet.</td></tr>';
