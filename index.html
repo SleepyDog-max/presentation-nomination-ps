@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Presentation Session Nomination for Parramatta South Group</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+        <h1 class="text-2xl font-bold mb-6 text-center">Presentation Session Nomination for Parramatta South Group</h1>
+
+        <!-- Nomination Form -->
+        <div id="form-container">
+            <div class="mb-4">
+                <label for="studentName" class="block text-sm font-medium text-gray-700">Full Name</label>
+                <input type="text" id="studentName" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
+            </div>
+            <div class="mb-4">
+                <label for="session" class="block text-sm font-medium text-gray-700">Preferred Session</label>
+                <select id="session" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
+                    <option value="" disabled selected>Select a session</option>
+                    <option value="Thursday, May 1, 2025, 13:00–14:00">Thursday, May 1, 2025, 13:00–14:00</option>
+                    <option value="Thursday, May 8, 2025, 13:00–14:00">Thursday, May 8, 2025, 13:00–14:00</option>
+                    <option value="Thursday, May 15, 2025, 13:00–14:00">Thursday, May 15, 2025, 13:00–14:00</option>
+                    <option value="Thursday, May 22, 2025, 13:00–14:00">Thursday, May 22, 2025, 13:00–14:00</option>
+                    <option value="Thursday, May 29, 2025, 13:00–14:00">Thursday, May 29, 2025, 13:00–14:00</option>
+                </select>
+                <p class="text-sm text-gray-500 mt-1">Each session accommodates four 15-minute presentations. You will be assigned a specific 15-minute slot within the selected hour.</p>
+            </div>
+            <div id="error-message" class="hidden mb-4 p-2 bg-red-100 text-red-700 rounded-md"></div>
+            <button onclick="submitNomination()" class="w-full bg-blue-600 text-white p-2 rounded-md hover:bg-blue-700 mb-4">Submit Nomination</button>
+            <button onclick="showNominations()" class="w-full bg-gray-600 text-white p-2 rounded-md hover:bg-gray-700">View Nominations</button>
+        </div>
+
+        <!-- Nominations Table -->
+        <div id="nominations-container" class="hidden">
+            <h2 class="text-xl font-semibold mb-4">Submitted Nominations</h2>
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th class="p-2 border">Name</th>
+                        <th class="p-2 border">Session</th>
+                    </tr>
+                </thead>
+                <tbody id="nominations-table"></tbody>
+            </table>
+            <button onclick="showForm(true)" class="w-full bg-blue-600 text-white p-2 rounded-md hover:bg-blue-700 mt-4">Renominate</button>
+            <button onclick="downloadCSV()" class="w-full bg-green-600 text-white p-2 rounded-md hover:bg-green-700 mt-2">Download CSV</button>
+            <button onclick="showForm(false)" class="w-full bg-gray-600 text-white p-2 rounded-md hover:bg-gray-700 mt-2">Back to Form</button>
+        </div>
+    </div>
+
+    <script>
+        function submitNomination() {
+            const studentName = document.getElementById('studentName').value.trim();
+            const session = document.getElementById('session').value;
+            const errorMessage = document.getElementById('error-message');
+
+            if (!studentName || !session) {
+                errorMessage.innerHTML = 'Please fill out all fields.';
+                errorMessage.classList.remove('hidden');
+                return;
+            }
+
+            const nominations = JSON.parse(localStorage.getItem('nominations') || '[]');
+            const existingNomination = nominations.find(n => n.studentName.toLowerCase() === studentName.toLowerCase());
+            const sessionCount = nominations.filter(n => n.session === session).length;
+
+            // Check if session is full (max 4 students)
+            if (sessionCount >= 4 && (!existingNomination || existingNomination.session !== session)) {
+                errorMessage.innerHTML = 'This session is full. Please choose another.';
+                errorMessage.classList.remove('hidden');
+                return;
+            }
+
+            if (existingNomination) {
+                // Renomination: only allow if new session has no nominations
+                if (existingNomination.session !== session) {
+                    const newSessionCount = nominations.filter(n => n.session === session).length;
+                    if (newSessionCount > 0) {
+                        errorMessage.innerHTML = 'Cannot renominate to a session already taken by others.';
+                        errorMessage.classList.remove('hidden');
+                        return;
+                    }
+                    // Remove existing nomination
+                    const updatedNominations = nominations.filter(n => n.studentName.toLowerCase() !== studentName.toLowerCase());
+                    updatedNominations.push({ studentName, session });
+                    localStorage.setItem('nominations', JSON.stringify(updatedNominations));
+                } else {
+                    // Same session selected, no change needed
+                    errorMessage.innerHTML = 'You have already nominated this session.';
+                    errorMessage.classList.remove('hidden');
+                    return;
+                }
+            } else {
+                // New nomination
+                nominations.push({ studentName, session });
+                localStorage.setItem('nominations', JSON.stringify(nominations));
+            }
+
+            // Store last submitted name for renomination pre-fill
+            localStorage.setItem('lastStudentName', studentName);
+
+            // Hide form and error, show nominations
+            document.getElementById('form-container').classList.add('hidden');
+            errorMessage.classList.add('hidden');
+            showNominations();
+        }
+
+        function showNominations() {
+            // Hide form
+            document.getElementById('form-container').classList.add('hidden');
+
+            // Show nominations table
+            const nominationsContainer = document.getElementById('nominations-container');
+            nominationsContainer.classList.remove('hidden');
+
+            // Populate table
+            const nominationsTable = document.getElementById('nominations-table');
+            nominationsTable.innerHTML = ''; // Clear existing rows
+            const nominations = JSON.parse(localStorage.getItem('nominations') || '[]');
+
+            if (nominations.length === 0) {
+                nominationsTable.innerHTML = '<tr><td colspan="2" class="p-2 text-center">No nominations submitted yet.</td></tr>';
+                return;
+            }
+
+            nominations.forEach(nomination => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="p-2 border">${nomination.studentName}</td>
+                    <td class="p-2 border">${nomination.session}</td>
+                `;
+                nominationsTable.appendChild(row);
+            });
+        }
+
+        function showForm(isRenominate = false) {
+            // Hide nominations
+            document.getElementById('nominations-container').classList.add('hidden');
+
+            // Show form
+            const formContainer = document.getElementById('form-container');
+            formContainer.classList.remove('hidden');
+
+            // Clear form inputs
+            const studentName = document.getElementById('studentName');
+            const session = document.getElementById('session');
+            const errorMessage = document.getElementById('error-message');
+            studentName.value = '';
+            session.value = '';
+            errorMessage.classList.add('hidden');
+
+            // If renominating, pre-fill form with existing nomination
+            if (isRenominate) {
+                const lastName = studentName.value || (localStorage.getItem('lastStudentName') || '').trim();
+                if (lastName) {
+                    const nominations = JSON.parse(localStorage.getItem('nominations') || '[]');
+                    const existingNomination = nominations.find(n => n.studentName.toLowerCase() === lastName.toLowerCase());
+                    if (existingNomination) {
+                        studentName.value = existingNomination.studentName;
+                        session.value = existingNomination.session;
+                    }
+                }
+            }
+        }
+
+        function downloadCSV() {
+            const nominations = JSON.parse(localStorage.getItem('nominations') || '[]');
+            let csv = 'Name,Session\n';
+            nominations.forEach(n => {
+                // Escape quotes in studentName and session to handle commas or quotes
+                const escapedName = `"${n.studentName.replace(/"/g, '""')}"`;
+                const escapedSession = `"${n.session.replace(/"/g, '""')}"`;
+                csv += `${escapedName},${escapedSession}\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'nominations.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
